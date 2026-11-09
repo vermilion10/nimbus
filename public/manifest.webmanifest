@@ -1,0 +1,25 @@
+{
+  "name": "Cloud",
+  "short_name": "Cloud",
+  "description": "Files, photos and media downloads for Nextcloud",
+  "id": "/",
+  "start_url": "/#/files/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#141218",
+  "theme_color": "#6750a4",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "GET",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  },
+  "shortcuts": [
+    { "name": "Download", "url": "/#/download", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Photos", "url": "/#/photos", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

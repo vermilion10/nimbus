@@ -1,0 +1,272 @@
+/* Design tokens. Every component reads only these variables, so a style is just
+   a new block of values: [data-style='name'] plus light and dark colours.
+   Mode: <html data-mode="system|light|dark">. Style: <html data-style="md3|shadcn">. */
+
+/* ---------- Material 3 ---------- */
+:root[data-style='md3'] {
+  --font: 'Roboto Flex Variable', Roboto, system-ui, sans-serif;
+  --font-display: 'Roboto Flex Variable', Roboto, system-ui, sans-serif;
+  --title-weight: 400;
+  --title-stretch: 100%;
+  --label-weight: 500;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 28px;
+  --radius-button: 999px;
+  --radius-nav: 999px;
+  --radius-field: 999px;
+  --radius-fab: 16px;
+  --radius-card: 16px;
+  --radius-dialog: 28px;
+  --radius-menu: 8px;
+  --radius-chip: 8px;
+
+  --control-h: 40px;
+  --nav-item-h: 56px;
+  --row-h: 56px;
+  --app-bar-h: 64px;
+
+  --border-w: 0px;
+  --card-border: none;
+  --divider: transparent;
+  --shadow-1: 0 1px 2px rgb(0 0 0 / .3), 0 1px 3px 1px rgb(0 0 0 / .15);
+  --shadow-2: 0 1px 2px rgb(0 0 0 / .3), 0 2px 6px 2px rgb(0 0 0 / .15);
+  --shadow-3: 0 4px 8px 3px rgb(0 0 0 / .15), 0 1px 3px rgb(0 0 0 / .3);
+  --state-hover: 8%;
+  --state-press: 12%;
+  --ease: cubic-bezier(.2, 0, 0, 1);
+  --dur: 200ms;
+}
+
+:root[data-style='md3'],
+:root[data-style='md3'][data-mode='light'] {
+  color-scheme: light;
+  --primary: #6750a4;
+  --on-primary: #ffffff;
+  --primary-container: #eaddff;
+  --on-primary-container: #21005d;
+  --tonal: #e8def8;
+  --on-tonal: #1d192b;
+  --tertiary-container: #ffd8e4;
+  --on-tertiary-container: #31111d;
+  --bg: #fef7ff;
+  --surface: #fef7ff;
+  --surface-lowest: #ffffff;
+  --surface-low: #f7f2fa;
+  --surface-container: #f3edf7;
+  --surface-high: #ece6f0;
+  --surface-highest: #e6e0e9;
+  --fg: #1d1b20;
+  --fg-muted: #49454f;
+  --border: #cac4d0;
+  --border-strong: #79747e;
+  --danger: #b3261e;
+  --on-danger: #ffffff;
+  --inverse-surface: #322f35;
+  --inverse-fg: #f5eff7;
+  --inverse-primary: #d0bcff;
+  --scrim: rgb(0 0 0 / .32);
+  /* surfaces each part of the layout uses */
+  --app-bg: var(--surface-container);
+  --nav-bg: var(--surface-container);
+  --content-bg: var(--surface);
+  --card-bg: var(--surface-low);
+  --menu-bg: var(--surface-container);
+  --dialog-bg: var(--surface-high);
+  --field-bg: var(--surface-high);
+}
+
+:root[data-style='md3'][data-mode='dark'] {
+  color-scheme: dark;
+  --primary: #d0bcff;
+  --on-primary: #381e72;
+  --primary-container: #4f378b;
+  --on-primary-container: #eaddff;
+  --tonal: #4a4458;
+  --on-tonal: #e8def8;
+  --tertiary-container: #633b48;
+  --on-tertiary-container: #ffd8e4;
+  --bg: #141218;
+  --surface: #141218;
+  --surface-lowest: #0f0d13;
+  --surface-low: #1d1b20;
+  --surface-container: #211f26;
+  --surface-high: #2b2930;
+  --surface-highest: #36343b;
+  --fg: #e6e0e9;
+  --fg-muted: #cac4d0;
+  --border: #49454f;
+  --border-strong: #938f99;
+  --danger: #f2b8b5;
+  --on-danger: #601410;
+  --inverse-surface: #e6e0e9;
+  --inverse-fg: #322f35;
+  --inverse-primary: #6750a4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-style='md3'][data-mode='system'] {
+    color-scheme: dark;
+    --primary: #d0bcff;
+    --on-primary: #381e72;
+    --primary-container: #4f378b;
+    --on-primary-container: #eaddff;
+    --tonal: #4a4458;
+    --on-tonal: #e8def8;
+    --tertiary-container: #633b48;
+    --on-tertiary-container: #ffd8e4;
+    --bg: #141218;
+    --surface: #141218;
+    --surface-lowest: #0f0d13;
+    --surface-low: #1d1b20;
+    --surface-container: #211f26;
+    --surface-high: #2b2930;
+    --surface-highest: #36343b;
+    --fg: #e6e0e9;
+    --fg-muted: #cac4d0;
+    --border: #49454f;
+    --border-strong: #938f99;
+    --danger: #f2b8b5;
+    --on-danger: #601410;
+    --inverse-surface: #e6e0e9;
+    --inverse-fg: #322f35;
+    --inverse-primary: #6750a4;
+  }
+}
+
+/* ---------- shadcn-style (neutral zinc) ---------- */
+:root[data-style='shadcn'] {
+  --font: 'Inter Variable', Inter, system-ui, sans-serif;
+  --font-display: 'Inter Variable', Inter, system-ui, sans-serif;
+  --title-weight: 600;
+  --title-stretch: 100%;
+  --label-weight: 500;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-button: 6px;
+  --radius-nav: 6px;
+  --radius-field: 6px;
+  --radius-fab: 6px;
+  --radius-card: 12px;
+  --radius-dialog: 12px;
+  --radius-menu: 8px;
+  --radius-chip: 6px;
+
+  --control-h: 36px;
+  --nav-item-h: 36px;
+  --row-h: 48px;
+  --app-bar-h: 56px;
+
+  --border-w: 1px;
+  --card-border: 1px solid var(--border);
+  --divider: var(--border);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / .05);
+  --shadow-2: 0 4px 6px -1px rgb(0 0 0 / .1), 0 2px 4px -2px rgb(0 0 0 / .1);
+  --shadow-3: 0 10px 15px -3px rgb(0 0 0 / .1), 0 4px 6px -4px rgb(0 0 0 / .1);
+  --state-hover: 5%;
+  --state-press: 8%;
+  --ease: cubic-bezier(.4, 0, .2, 1);
+  --dur: 150ms;
+}
+
+:root[data-style='shadcn'],
+:root[data-style='shadcn'][data-mode='light'] {
+  color-scheme: light;
+  --primary: #18181b;
+  --on-primary: #fafafa;
+  --primary-container: #f4f4f5;
+  --on-primary-container: #18181b;
+  --tonal: #f4f4f5;
+  --on-tonal: #18181b;
+  --tertiary-container: #f4f4f5;
+  --on-tertiary-container: #18181b;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-lowest: #ffffff;
+  --surface-low: #fafafa;
+  --surface-container: #fafafa;
+  --surface-high: #f4f4f5;
+  --surface-highest: #e4e4e7;
+  --fg: #09090b;
+  --fg-muted: #71717a;
+  --border: #e4e4e7;
+  --border-strong: #a1a1aa;
+  --danger: #dc2626;
+  --on-danger: #fafafa;
+  --inverse-surface: #18181b;
+  --inverse-fg: #fafafa;
+  --inverse-primary: #fafafa;
+  --scrim: rgb(0 0 0 / .5);
+  --app-bg: var(--surface);
+  --nav-bg: var(--surface-low);
+  --content-bg: var(--surface);
+  --card-bg: var(--surface);
+  --menu-bg: var(--surface);
+  --dialog-bg: var(--surface);
+  --field-bg: var(--surface);
+}
+
+:root[data-style='shadcn'][data-mode='dark'] {
+  color-scheme: dark;
+  --primary: #fafafa;
+  --on-primary: #18181b;
+  --primary-container: #27272a;
+  --on-primary-container: #fafafa;
+  --tonal: #27272a;
+  --on-tonal: #fafafa;
+  --tertiary-container: #27272a;
+  --on-tertiary-container: #fafafa;
+  --bg: #09090b;
+  --surface: #09090b;
+  --surface-lowest: #09090b;
+  --surface-low: #0f0f11;
+  --surface-container: #18181b;
+  --surface-high: #27272a;
+  --surface-highest: #3f3f46;
+  --fg: #fafafa;
+  --fg-muted: #a1a1aa;
+  --border: #27272a;
+  --border-strong: #52525b;
+  --danger: #f87171;
+  --on-danger: #18181b;
+  --inverse-surface: #fafafa;
+  --inverse-fg: #18181b;
+  --inverse-primary: #18181b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-style='shadcn'][data-mode='system'] {
+    color-scheme: dark;
+    --primary: #fafafa;
+    --on-primary: #18181b;
+    --primary-container: #27272a;
+    --on-primary-container: #fafafa;
+    --tonal: #27272a;
+    --on-tonal: #fafafa;
+    --tertiary-container: #27272a;
+    --on-tertiary-container: #fafafa;
+    --bg: #09090b;
+    --surface: #09090b;
+    --surface-lowest: #09090b;
+    --surface-low: #0f0f11;
+    --surface-container: #18181b;
+    --surface-high: #27272a;
+    --surface-highest: #3f3f46;
+    --fg: #fafafa;
+    --fg-muted: #a1a1aa;
+    --border: #27272a;
+    --border-strong: #52525b;
+    --danger: #f87171;
+    --on-danger: #18181b;
+    --inverse-surface: #fafafa;
+    --inverse-fg: #18181b;
+    --inverse-primary: #18181b;
+  }
+}

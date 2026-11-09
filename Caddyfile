@@ -1,0 +1,50 @@
+# Serves the built app and proxies Nextcloud's APIs on the same origin, so the
+# browser never needs CORS. Settings come from the environment (see .env.example):
+#   NEXTCLOUD_UPSTREAM  where Nextcloud answers on the Docker network (host:port)
+#   NEXTCLOUD_HOST      a name in Nextcloud's trusted_domains, sent as the Host header
+{
+	admin off
+	auto_https off
+}
+
+:8093 {
+	encode zstd gzip
+
+	handle /dl/* {
+		reverse_proxy downloader:8000 {
+			header_up -Cookie
+		}
+	}
+
+	@nextcloud path /remote.php/* /ocs/* /index.php/* /login/* /core/*
+	handle @nextcloud {
+		reverse_proxy {$NEXTCLOUD_UPSTREAM} {
+			# Nextcloud only answers its trusted names; links it generates
+			# (the sign-in page) then point at that name.
+			header_up Host {$NEXTCLOUD_HOST}
+			# The app signs every request with its app password and never uses
+			# cookies. Browsers send cookies regardless of port, so a login to
+			# Nextcloud on the same host name would otherwise ride along, and Nextcloud then
+			# rejects uploads and other changes with 401 (CSRF check).
+			header_up -Cookie
+			header_down -Set-Cookie
+			flush_interval -1
+		}
+	}
+
+	handle {
+		root * /srv
+		header {
+			X-Content-Type-Options nosniff
+			Referrer-Policy no-referrer
+			X-Frame-Options DENY
+			Content-Security-Policy "default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; frame-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+		}
+		@immutable path /assets/*
+		header @immutable Cache-Control "public, max-age=31536000, immutable"
+		@html path / /index.html /sw.js /manifest.webmanifest /share /config.js
+		header @html Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

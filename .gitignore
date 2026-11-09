@@ -1,0 +1,10 @@
+node_modules
+dist
+public/pdfjs
+# installation settings and data
+.env
+/config.js
+dl-data
+# personal deploy files
+deploy/local
+.claude

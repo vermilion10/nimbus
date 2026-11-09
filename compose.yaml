@@ -1,0 +1,60 @@
+# Cloud: web app (Caddy) + media downloader. Configure with .env (see .env.example)
+# and config.js (copy public/config.js). Both containers run read-only, without
+# Linux capabilities, as an unprivileged user.
+services:
+  web:
+    build: .
+    image: cloud-ui:latest
+    container_name: cloud-ui
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    user: "1000:1000"
+    environment:
+      NEXTCLOUD_UPSTREAM: ${NEXTCLOUD_UPSTREAM:-nextcloud:80}
+      NEXTCLOUD_HOST: ${NEXTCLOUD_HOST:?set NEXTCLOUD_HOST in .env}
+    volumes:
+      - ./config.js:/srv/config.js:ro
+    tmpfs:
+      - /config
+      - /data
+    ports:
+      - ${PORT:-8093}:8093
+    networks:
+      - default
+      - nextcloud
+
+  # Only reachable through the web service at /dl/api/*; uploads results into
+  # Nextcloud as the requesting user.
+  downloader:
+    build:
+      context: ./downloader
+      args:
+        UPDATED: ${DL_UPDATED:-0}
+    image: cloud-dl:latest
+    container_name: cloud-dl
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    user: "1000:1000"
+    environment:
+      NEXTCLOUD_UPSTREAM: ${NEXTCLOUD_UPSTREAM:-nextcloud:80}
+      NEXTCLOUD_HOSTNAME: ${NEXTCLOUD_HOST:?set NEXTCLOUD_HOST in .env}
+      TARGET_DIR: ${DOWNLOAD_DIR:-/Downloads}
+      WORKERS: ${DOWNLOAD_WORKERS:-2}
+    volumes:
+      # jobs list, cookies.txt per user, files while they download
+      - ./dl-data:/data
+    tmpfs:
+      - /tmp
+    networks:
+      - default
+      - nextcloud
+
+networks:
+  # The Docker network your Nextcloud container is on.
+  nextcloud:
+    name: ${NEXTCLOUD_NETWORK:-nextcloud_default}
+    external: true
