@@ -30,7 +30,7 @@ A web front end for Nextcloud with a built-in media downloader. It has its own l
 ## Setup
 
 ```bash
-git clone <this repository> cloud && cd cloud
+git clone https://github.com/vermilion10/nimbus.git && cd nimbus
 cp .env.example .env            # Nextcloud's host name, network and port
 cp public/config.js config.js   # optional settings, see below
 docker compose up -d --build
