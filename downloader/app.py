@@ -42,6 +42,10 @@ TARGET_ROOT = os.environ.get("TARGET_DIR", "/Downloads")
 WORKERS = int(os.environ.get("WORKERS", "2"))
 JOB_TIMEOUT = int(os.environ.get("JOB_TIMEOUT", "1800"))
 KEEP_JOBS = 200
+# Sites (names as site_of returns them) fetched through PROXY_URL, for sites the
+# network blocks by address.
+PROXY_SITES = {s.strip().lower() for s in os.environ.get("PROXY_SITES", "").split(",") if s.strip()}
+PROXY_URL = os.environ.get("PROXY_URL", "")
 
 COOKIES = DATA / "cookies"
 JOBS_FILE = DATA / "jobs.json"
@@ -226,10 +230,18 @@ def gallery_dl(url: str, out: Path, cookies: Path | None, job: dict) -> tuple[in
         "-f", "{author[name]|user[name]|owner[username]|username|uploader|category} - "
               "{tweet_id|post_id|shortcode|id|filename} - {num:>02}.{extension}",
         "-o", "videos=true",
+        # Kemono and Coomer default to thumbnails only; fetch the posted files.
+        "-o", "extractor.kemono.original=true",
     ]
     if cookies:
         cmd += ["--cookies", str(cookies)]
+    if proxied(job):
+        cmd += ["--proxy", PROXY_URL]
     return run_tool(cmd + [url], job, out)
+
+
+def proxied(job: dict) -> bool:
+    return bool(PROXY_URL) and job["site"] in PROXY_SITES
 
 
 # ---- X / Twitter without logging in
@@ -333,6 +345,8 @@ def yt_dlp(url: str, out: Path, cookies: Path | None, job: dict) -> tuple[int, s
     ]
     if cookies:
         cmd += ["--cookies", str(cookies)]
+    if proxied(job):
+        cmd += ["--proxy", PROXY_URL]
     return run_tool(cmd + [url], job, out)
 
 

@@ -58,6 +58,12 @@ The app is then on port 8093. In `.env`:
 
 Instagram, Facebook, Reddit and some X posts only download when logged in. On the Download page, **Logins** takes a `cookies.txt` (Netscape format) exported from a browser that is signed in to those sites. It is stored per Nextcloud user in `dl-data/cookies/` and used only for that user's downloads. Public X posts are read through [FxTwitter](https://github.com/FixTweet/FxTwitter)'s API without a login; that service sees which post IDs are requested.
 
+### Blocked sites
+
+The downloader looks up site names over DNS-over-HTTPS through a small resolver container ([dnsproxy](https://github.com/AdguardTeam/dnsproxy)), so sites your network or ISP blocks only by DNS still download. `DOH_UPSTREAM` and `DOH_FALLBACK` in `.env` choose the servers (Cloudflare and Google by default).
+
+If a site is also blocked by its address, the downloader can fetch it through [Cloudflare WARP](https://one.one.one.one/). Set `COMPOSE_PROFILES=warp` and list the sites in `PROXY_SITES` (comma-separated names, as in `Downloads/<site>/`, for example `kemono`). The `warp` container registers an anonymous WARP device on first start ([wgcf](https://github.com/ViRb3/wgcf), accepting Cloudflare's WARP terms), keeps it in `dl-data/warp`, and serves it as an HTTP proxy with [wireproxy](https://github.com/whyvl/wireproxy), without a VPN interface or extra privileges. Only the listed sites go through it; Cloudflare sees those requests.
+
 Sites change often. Rebuild the downloader regularly to get the latest yt-dlp and gallery-dl:
 
 ```bash
@@ -81,4 +87,4 @@ The dev server runs at http://localhost:5181 and proxies the API paths to `NEXTC
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Bundled third-party code keeps its own license: pdf.js (Apache-2.0), Roboto Flex and Inter (SIL Open Font License), Lucide icons (ISC); gallery-dl (GPL-2.0) and yt-dlp (Unlicense) are installed into the downloader image, not included in this repository.
+MIT, see [LICENSE](LICENSE). Bundled third-party code keeps its own license: pdf.js (Apache-2.0), Roboto Flex and Inter (SIL Open Font License), Lucide icons (ISC); gallery-dl (GPL-2.0) and yt-dlp (Unlicense) are installed into the downloader image, and wgcf (MIT) and wireproxy (ISC) into the WARP image, not included in this repository.

@@ -44,16 +44,71 @@ services:
       NEXTCLOUD_HOSTNAME: ${NEXTCLOUD_HOST:?set NEXTCLOUD_HOST in .env}
       TARGET_DIR: ${DOWNLOAD_DIR:-/Downloads}
       WORKERS: ${DOWNLOAD_WORKERS:-2}
+      # Sites fetched through the optional "warp" service (see .env.example)
+      PROXY_SITES: ${PROXY_SITES:-}
+      PROXY_URL: ${PROXY_URL:-http://warp:8080}
     volumes:
       # jobs list, cookies.txt per user, files while they download
       - ./dl-data:/data
     tmpfs:
       - /tmp
+    # Look up site names over DNS-over-HTTPS (service "resolver"), so DNS
+    # filtering by the network or ISP does not break downloads. Container names
+    # such as nextcloud still resolve through Docker.
+    dns: [10.253.53.6]
+    depends_on: [resolver]
     networks:
       - default
       - nextcloud
+      - resolver
+
+  resolver:
+    image: adguard/dnsproxy:v0.86.0
+    container_name: cloud-dl-dns
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE] # the binary is built to need it for port 53
+    security_opt: [no-new-privileges:true]
+    user: "1000:1000"
+    command:
+      - --listen=0.0.0.0
+      - --port=53
+      - --upstream=${DOH_UPSTREAM:-https://1.1.1.1/dns-query}
+      - --fallback=${DOH_FALLBACK:-https://8.8.8.8/dns-query}
+      - --cache
+    networks:
+      resolver:
+        ipv4_address: 10.253.53.6
+
+  # Optional: Cloudflare WARP as an HTTP proxy for sites your network blocks by
+  # address. Started only with COMPOSE_PROFILES=warp; registers an anonymous
+  # WARP device on first start and keeps it in dl-data/warp.
+  warp:
+    build: ./warp
+    image: cloud-dl-warp:latest
+    container_name: cloud-dl-warp
+    profiles: [warp]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    user: "1000:1000"
+    volumes:
+      - ./dl-data/warp:/data
+    tmpfs:
+      - /tmp
+    dns: [10.253.53.6]
+    depends_on: [resolver]
+    networks:
+      - default
+      - resolver
 
 networks:
+  resolver:
+    ipam:
+      config:
+        - subnet: 10.253.53.0/29
   # The Docker network your Nextcloud container is on.
   nextcloud:
     name: ${NEXTCLOUD_NETWORK:-nextcloud_default}
