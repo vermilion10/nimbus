@@ -1563,24 +1563,40 @@ a {
 }
 
 /* ---------- viewer ---------- */
+/* Full screen. Photos use the whole screen under the bar (tap hides the
+   controls); videos, PDFs and text sit below it, always fully visible. */
 .viewer {
+  --viewer-bar: calc(64px + env(safe-area-inset-top));
   position: fixed;
   inset: 0;
   z-index: 90;
-  display: grid;
-  grid-template-rows: 64px 1fr;
+  overflow: hidden;
   background: #000;
   color: #fff;
   animation: fade var(--dur) var(--ease);
 }
 
 .viewer-bar {
+  position: absolute;
+  inset: 0 0 auto;
+  height: var(--viewer-bar);
+  padding: env(safe-area-inset-top) 8px 0;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 0 8px;
-  background: linear-gradient(rgb(0 0 0 / .6), transparent);
+  background: linear-gradient(rgb(0 0 0 / .72), rgb(0 0 0 / .32) 70%, transparent);
   z-index: 2;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.viewer:not([data-kind='image']) .viewer-bar {
+  background: #000;
+}
+
+.viewer.bare .viewer-bar,
+.viewer.bare .viewer-nav {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .viewer-bar .icon-btn {
@@ -1591,24 +1607,64 @@ a {
   flex: 1;
   min-width: 0;
   padding: 0 8px;
+  display: grid;
+  line-height: 1.3;
+}
+
+.viewer-bar .title .name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 16px;
 }
 
-.viewer-stage {
-  position: relative;
-  min-height: 0;
-  display: grid;
-  place-items: center;
+.viewer-bar .title .count {
+  font-size: 12px;
+  color: rgb(255 255 255 / .7);
 }
 
-.viewer-stage img,
-.viewer-stage video {
+.viewer-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.viewer:not([data-kind='image']) .viewer-stage {
+  top: var(--viewer-bar);
+}
+
+/* the stage has a fixed size, so these percentages always fit the screen */
+.viewer-stage img {
+  display: block;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  cursor: zoom-in;
+  user-select: none;
+}
+
+.viewer-stage video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.viewer.zoom .viewer-stage {
+  overflow: auto;
+  display: block;
+}
+
+.viewer.zoom .viewer-stage img {
+  max-width: none;
+  max-height: none;
+  margin: auto;
+  cursor: zoom-out;
 }
 
 .viewer-stage iframe {
@@ -1645,14 +1701,15 @@ a {
   border: 0;
   display: grid;
   place-items: center;
-  background: rgb(255 255 255 / .12);
+  background: rgb(0 0 0 / .45);
   color: #fff;
   cursor: pointer;
   z-index: 2;
+  transition: opacity var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 
 .viewer-nav:hover {
-  background: rgb(255 255 255 / .22);
+  background: rgb(0 0 0 / .7);
 }
 
 .viewer-nav.prev {
@@ -1661,6 +1718,11 @@ a {
 
 .viewer-nav.next {
   right: 16px;
+}
+
+/* videos: keep the arrows clear of the player's controls */
+.viewer[data-kind='video'] .viewer-nav {
+  top: calc(50% + var(--viewer-bar) / 2 - 32px);
 }
 
 .viewer-nav svg {

@@ -10,7 +10,7 @@ A web front end for Nextcloud with a built-in media downloader. It has its own l
 - **Search** by file name across all files
 - **Trash** with restore and permanent delete
 - **Public links** (optional) for a folder that another site publishes read-only
-- **Media downloader:** paste links to posts on X, Instagram, Facebook, TikTok, YouTube, Reddit and many other sites, or share them to the app from your phone; the server fetches them with [gallery-dl](https://github.com/mikf/gallery-dl) and [yt-dlp](https://github.com/yt-dlp/yt-dlp) and saves them to `Downloads/<site>/` in your files
+- **Media downloader:** paste links to posts on X, Instagram, Facebook, TikTok, YouTube, Reddit and many other sites, or share them to the app from your phone; the server fetches them with [gallery-dl](https://github.com/mikf/gallery-dl) and [yt-dlp](https://github.com/yt-dlp/yt-dlp) and saves them to `Downloads/<site>/<artist or account>/` in your files. Each user's downloads are remembered, so fetching a profile again only saves posts that are new since last time
 - **Installable web app:** on Android it appears in the Share menu, and shared links go straight to the downloader
 - Phone layout with a bottom navigation bar
 
@@ -57,6 +57,10 @@ The app is then on port 8093. In `.env`:
 ### Downloads that need a login
 
 Instagram, Facebook, Reddit and some X posts only download when logged in. On the Download page, **Logins** takes a `cookies.txt` (Netscape format) exported from a browser that is signed in to those sites. It is stored per Nextcloud user in `dl-data/cookies/` and used only for that user's downloads. Public X posts are read through [FxTwitter](https://github.com/FixTweet/FxTwitter)'s API without a login; that service sees which post IDs are requested.
+
+### Download history
+
+Every file a user downloads is recorded in `dl-data/archive/` (gallery-dl's and yt-dlp's download archives, one per user). Running a link again, for example with **Check for new media** on a finished download, fetches only what is not in the history yet. If nothing is new, **Download everything again** ignores the history for that run. A file is added to the history only after it is saved in Nextcloud, so a failed upload is retried next time.
 
 ### Blocked sites
 

@@ -32,20 +32,49 @@ export function Viewer({ items, start, onClose }: { items: Node[]; start: number
 
   // swipe left/right on touch screens
   const [touchX, setTouchX] = useState<number | null>(null)
+  // Photos fill the screen: a click hides or shows the controls, a double-click zooms.
+  const [chrome, setChrome] = useState(true)
+  const [zoom, setZoom] = useState(false)
+  useEffect(() => setZoom(false), [index])
 
   if (!node) return null
+  const kind = kindOf(node.mime, node.name)
 
   return (
-    <div className="viewer" role="dialog" aria-modal="true" aria-label={node.name}>
+    <div
+      className={'viewer' + (chrome ? '' : ' bare') + (zoom ? ' zoom' : '')}
+      data-kind={kind}
+      role="dialog"
+      aria-modal="true"
+      aria-label={node.name}
+    >
+      <div
+        className="viewer-stage"
+        onClick={kind === 'image' ? () => setChrome((c) => !c) : undefined}
+        onDoubleClick={kind === 'image' ? () => setZoom((z) => !z) : undefined}
+        onTouchStart={(e) =>
+          // no swiping between files while panning a PDF or a zoomed photo
+          setTouchX(zoom || (e.target as HTMLElement).closest('.pdf') ? null : e.touches[0].clientX)
+        }
+        onTouchEnd={(e) => {
+          if (touchX === null) return
+          const dx = e.changedTouches[0].clientX - touchX
+          if (dx > 60) prev()
+          if (dx < -60) next()
+          setTouchX(null)
+        }}
+      >
+        <Content key={node.path} node={node} />
+      </div>
       <div className="viewer-bar">
         <button className="icon-btn state" aria-label="Close" onClick={onClose}>
           <ArrowLeft />
         </button>
         <div className="title">
-          {node.name}
+          <span className="name">{node.name}</span>
           {items.length > 1 && (
-            <span style={{ opacity: 0.6, fontSize: 13, marginLeft: 8 }}>
-              {index + 1} / {items.length}
+            <span className="count">
+              {index + 1} of {items.length}
             </span>
           )}
         </div>
@@ -105,32 +134,16 @@ export function Viewer({ items, start, onClose }: { items: Node[]; start: number
           <MoreVertical />
         </button>
       </div>
-      <div
-        className="viewer-stage"
-        onTouchStart={(e) =>
-          // no swiping between files while panning a PDF
-          setTouchX((e.target as HTMLElement).closest('.pdf') ? null : e.touches[0].clientX)
-        }
-        onTouchEnd={(e) => {
-          if (touchX === null) return
-          const dx = e.changedTouches[0].clientX - touchX
-          if (dx > 60) prev()
-          if (dx < -60) next()
-          setTouchX(null)
-        }}
-      >
-        <Content key={node.path} node={node} />
-        {index > 0 && (
-          <button className="viewer-nav prev" aria-label="Previous" onClick={prev}>
-            <ChevronLeft />
-          </button>
-        )}
-        {index < items.length - 1 && (
-          <button className="viewer-nav next" aria-label="Next" onClick={next}>
-            <ChevronRight />
-          </button>
-        )}
-      </div>
+      {index > 0 && (
+        <button className="viewer-nav prev" aria-label="Previous" onClick={prev}>
+          <ChevronLeft />
+        </button>
+      )}
+      {index < items.length - 1 && (
+        <button className="viewer-nav next" aria-label="Next" onClick={next}>
+          <ChevronRight />
+        </button>
+      )}
     </div>
   )
 }

@@ -21,6 +21,7 @@ import os
 import re
 import shutil
 import socket
+import sqlite3
 import subprocess
 import tempfile
 import threading
@@ -48,6 +49,8 @@ PROXY_SITES = {s.strip().lower() for s in os.environ.get("PROXY_SITES", "").spli
 PROXY_URL = os.environ.get("PROXY_URL", "")
 
 COOKIES = DATA / "cookies"
+# What each user has downloaded, so a profile link fetched again only gets new posts.
+ARCHIVES = DATA / "archive"
 JOBS_FILE = DATA / "jobs.json"
 
 # Sites where gallery-dl knows posts best (images, carousels, mixed media);
@@ -60,6 +63,7 @@ SITE_NAMES = {
     "tiktok.com": "tiktok", "youtube.com": "youtube", "youtu.be": "youtube", "reddit.com": "reddit",
     "redd.it": "reddit", "pixiv.net": "pixiv", "bsky.app": "bluesky", "tumblr.com": "tumblr",
     "threads.net": "threads", "threads.com": "threads", "pinterest.com": "pinterest", "pin.it": "pinterest",
+    "donmai.us": "danbooru",
 }
 
 lock = threading.Lock()
@@ -205,6 +209,7 @@ def update(job: dict, **fields) -> None:
 def run_tool(cmd: list[str], job: dict, cwd: Path) -> tuple[int, str]:
     proc = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
     tail: list[str] = []
+    skipped = 0
     deadline = time.time() + JOB_TIMEOUT
     assert proc.stdout
     for line in proc.stdout:
@@ -212,6 +217,10 @@ def run_tool(cmd: list[str], job: dict, cwd: Path) -> tuple[int, str]:
         if not line:
             continue
         tail = (tail + [line])[-40:]
+        # gallery-dl prints "# <path>" for files in the archive; yt-dlp says so in words
+        if line.startswith("# ") or "has already been recorded in the archive" in line:
+            skipped += 1
+            job["skipped"] = skipped
         m = re.search(r"PROGRESS\s+(\S+%)\s*(.*)", line)
         if m:
             update(job, progress=f"{m.group(1).strip()} {m.group(2).strip()}".strip())
@@ -224,15 +233,19 @@ def run_tool(cmd: list[str], job: dict, cwd: Path) -> tuple[int, str]:
     return proc.returncode, "\n".join(tail)
 
 
-def gallery_dl(url: str, out: Path, cookies: Path | None, job: dict) -> tuple[int, str]:
+def gallery_dl(url: str, out: Path, cookies: Path | None, job: dict, arch: Path | None) -> tuple[int, str]:
+    # -d keeps gallery-dl's own folders per site: <site>/<artist or account>/...
     cmd = [
-        "gallery-dl", "--no-mtime", "-D", str(out),
-        "-f", "{author[name]|user[name]|owner[username]|username|uploader|category} - "
+        "gallery-dl", "--no-mtime", "-d", str(out),
+        "-f", "{author[name]|author[handle]|author_name|user[name]|owner[username]|username|uploader|category} - "
               "{tweet_id|post_id|shortcode|id|filename} - {num:>02}.{extension}",
         "-o", "videos=true",
         # Kemono and Coomer default to thumbnails only; fetch the posted files.
         "-o", "extractor.kemono.original=true",
+        "-o", 'extractor.kemono.directory=["{category}", "{username|user}"]',
     ]
+    if arch:
+        cmd += ["--download-archive", str(arch / "gallery-dl.sqlite3")]
     if cookies:
         cmd += ["--cookies", str(cookies)]
     if proxied(job):
@@ -300,7 +313,7 @@ def syndication_media(tweet_id: str) -> tuple[str, list[str]]:
     return t["user"]["screen_name"], urls
 
 
-def twitter_api(url: str, out: Path, cookies: Path | None, job: dict) -> tuple[int, str]:
+def twitter_api(url: str, out: Path, cookies: Path | None, job: dict, arch: Path | None) -> tuple[int, str]:
     m = re.search(r"/status(?:es)?/(\d+)", url)
     if not m:
         return 1, "Not a post link"
@@ -319,7 +332,9 @@ def twitter_api(url: str, out: Path, cookies: Path | None, job: dict) -> tuple[i
             ext = ext.group(1) if ext else ("mp4" if "video" in media else "jpg")
             update(job, progress=f"{i} of {len(urls)}")
             req = urllib.request.Request(media, headers={"User-Agent": UA})
-            with urllib.request.urlopen(req, timeout=120) as r, (out / f"{user} - {tweet_id} - {i:02}.{ext}").open("wb") as f:
+            folder = out / "_" / user
+            folder.mkdir(parents=True, exist_ok=True)
+            with urllib.request.urlopen(req, timeout=120) as r, (folder / f"{user} - {tweet_id} - {i:02}.{ext}").open("wb") as f:
                 shutil.copyfileobj(r, f, 1 << 20)
         return 0, ""
     return 1, "\n".join(log)
@@ -334,15 +349,17 @@ def name_template(site: str) -> str:
     return "%(title).120B - %(id)s.%(ext)s"
 
 
-def yt_dlp(url: str, out: Path, cookies: Path | None, job: dict) -> tuple[int, str]:
+def yt_dlp(url: str, out: Path, cookies: Path | None, job: dict, arch: Path | None) -> tuple[int, str]:
     cmd = [
         "yt-dlp", "--newline", "--no-mtime", "--no-part", "--progress",
         "--progress-template", "download:PROGRESS %(progress._percent_str)s %(progress._total_bytes_str)s",
         "-f", "bv*+ba/b", "--merge-output-format", "mp4", "--max-filesize", "4G",
         "--playlist-items", "1:50",
-        "-o", str(out / name_template(job["site"])),
+        "-o", str(out / "_" / "%(uploader,channel,uploader_id|unknown)s" / name_template(job["site"])),
         "--no-write-thumbnail",
     ]
+    if arch:
+        cmd += ["--download-archive", str(arch / "yt-dlp.txt")]
     if cookies:
         cmd += ["--cookies", str(cookies)]
     if proxied(job):
@@ -359,6 +376,43 @@ def summarize_error(log: str) -> str:
     return msg[:400]
 
 
+archive_lock = threading.Lock()
+
+
+def load_archive(user: str, arch: Path) -> None:
+    """Copy the user's history into the job's folder; the job works on the copy."""
+    for name, dest in ((f"{user}.sqlite3", "gallery-dl.sqlite3"), (f"{user}-yt-dlp.txt", "yt-dlp.txt")):
+        src = ARCHIVES / name
+        if src.exists():
+            with archive_lock:
+                shutil.copy(src, arch / dest)
+
+
+def save_archive(user: str, arch: Path) -> None:
+    """Add what the job downloaded to the user's history (only once it is saved in Nextcloud)."""
+    ARCHIVES.mkdir(parents=True, exist_ok=True)
+    with archive_lock:
+        src = arch / "gallery-dl.sqlite3"
+        if src.exists():
+            db = sqlite3.connect(ARCHIVES / f"{user}.sqlite3")
+            try:
+                db.execute("CREATE TABLE IF NOT EXISTS archive (entry TEXT PRIMARY KEY) WITHOUT ROWID")
+                db.commit()
+                db.execute("ATTACH DATABASE ? AS job", (str(src),))
+                db.execute("INSERT OR IGNORE INTO archive (entry) SELECT entry FROM job.archive")
+                db.commit()
+            finally:
+                db.close()
+        src = arch / "yt-dlp.txt"
+        if src.exists():
+            dest = ARCHIVES / f"{user}-yt-dlp.txt"
+            have = set(dest.read_text().splitlines()) if dest.exists() else set()
+            new = [l for l in src.read_text().splitlines() if l.strip() and l not in have]
+            if new:
+                with dest.open("a") as f:
+                    f.write("\n".join(new) + "\n")
+
+
 def process(job_id: str) -> None:
     job = jobs[job_id]
     auth = secrets.get(job_id)
@@ -369,8 +423,11 @@ def process(job_id: str) -> None:
     cookie_file = COOKIES / f"{user}.txt"
     cookies = cookie_file if cookie_file.exists() else None
     tmp = Path(tempfile.mkdtemp(prefix="dl-", dir=DATA / "tmp"))
+    arch = Path(tempfile.mkdtemp(prefix="arch-", dir=DATA / "tmp"))
     try:
-        update(job, status="running", progress="Starting")
+        update(job, status="running", progress="Starting", skipped=0)
+        if not job.get("all"):
+            load_archive(user, arch)
         order = [gallery_dl, yt_dlp] if site in GALLERY_FIRST else [yt_dlp, gallery_dl]
         if site == "twitter":
             order = [twitter_api] + order
@@ -378,31 +435,51 @@ def process(job_id: str) -> None:
         for tool in order:
             for f in tmp.iterdir():
                 f.unlink() if f.is_file() else shutil.rmtree(f)
-            code, log = tool(url, tmp, cookies, job)
+            job["skipped"] = 0
+            code, log = tool(url, tmp, cookies, job, arch)
             files = [f for f in tmp.rglob("*") if f.is_file() and not f.name.endswith((".part", ".ytdl", ".json"))]
-            if files:
+            if files or job.get("skipped"):
                 break
             logs.append(log)
         else:
             update(job, status="error", message=summarize_error("\n".join(logs)), progress="")
             return
+        skipped = job.get("skipped", 0)
+        if not files:
+            update(job, status="done", files=[], progress="", folder=job.get("folder") or f"{TARGET_ROOT}/{site}",
+                   message=f"No new media ({skipped} already downloaded)")
+            return
 
-        folder = f"{TARGET_ROOT}/{site}"
+        # Tools write <site or _>/<artist>/<file>; files go to Downloads/<site>/<artist>/.
+        targets = []
+        for f in sorted(files):
+            sub = [clean_name(part) for part in f.relative_to(tmp).parts[1:-1]]
+            targets.append((f, "/".join([f"{TARGET_ROOT}/{site}", *sub])))
+        folders = sorted({t for _, t in targets})
         update(job, status="uploading", progress=f"0 of {len(files)} saved")
-        ensure_dir(user, auth, folder)
+        for folder in folders:
+            ensure_dir(user, auth, folder)
         saved = []
-        for i, f in enumerate(sorted(files)):
+        for i, (f, folder) in enumerate(targets):
             renamed = f.with_name(clean_name(f.name))
             if renamed != f:
                 f.rename(renamed)
             saved.append(upload(user, auth, folder, renamed))
             update(job, progress=f"{i + 1} of {len(files)} saved")
-        update(job, status="done", files=saved, folder=folder, progress="", message=f"{len(saved)} file{'s' if len(saved) != 1 else ''} saved")
+        save_archive(user, arch)
+        n = len(saved)
+        message = f"{n} {'new ' if skipped else ''}file{'s' if n != 1 else ''} saved"
+        if skipped:
+            message += f", {skipped} already downloaded"
+        update(job, status="done", files=saved, progress="", message=message,
+               folder=folders[0] if len(folders) == 1 else f"{TARGET_ROOT}/{site}")
     except Exception as e:
         update(job, status="error", message=str(e)[:400], progress="")
     finally:
         secrets.pop(job_id, None)
+        job.pop("all", None)
         shutil.rmtree(tmp, ignore_errors=True)
+        shutil.rmtree(arch, ignore_errors=True)
 
 
 # ---------------------------------------------------------------- http api
@@ -492,6 +569,8 @@ class Handler(BaseHTTPRequestHandler):
                 jid = uuid.uuid4().hex[:12]
                 job = {"id": jid, "user": user, "url": url, "site": site_of(url), "status": "queued", "message": "",
                        "progress": "", "files": [], "folder": "", "created": time.time(), "updated": time.time()}
+                if data.get("all") is True:
+                    job["all"] = True
                 with lock:
                     jobs[jid] = job
                 secrets[jid] = self.headers["Authorization"]
@@ -505,6 +584,8 @@ class Handler(BaseHTTPRequestHandler):
             if job["status"] in ("queued", "running", "uploading"):
                 return self.send(409, {"error": "Already running"})
             update(job, status="queued", message="", progress="", files=[])
+            if data.get("all") is True:  # download everything, ignoring what was saved before
+                job["all"] = True
             secrets[job["id"]] = self.headers["Authorization"]
             pool.submit(process, job["id"])
             return self.send(200, {"job": public_job(job)})

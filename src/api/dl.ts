@@ -14,6 +14,8 @@ export interface DlJob {
   updated: number
   /** Set when the same link was already downloaded in the last minutes. */
   duplicate?: boolean
+  /** Files skipped because this user downloaded them before. */
+  skipped?: number
 }
 
 export class Dl {
@@ -38,7 +40,8 @@ export class Dl {
 
   jobs = () => this.call<{ jobs: DlJob[] }>('GET', '/jobs').then((r) => r.jobs)
   start = (urls: string[]) => this.call<{ jobs: DlJob[] }>('POST', '/jobs', JSON.stringify({ urls })).then((r) => r.jobs)
-  retry = (id: string) => this.call('POST', `/jobs/${id}/retry`)
+  /** Runs a job again; only media not downloaded before is fetched unless `all` is set. */
+  retry = (id: string, all = false) => this.call('POST', `/jobs/${id}/retry`, JSON.stringify({ all }))
   remove = (id: string) => this.call('DELETE', `/jobs/${id}`)
   cookies = () => this.call<{ domains: string[]; updated: number | null }>('GET', '/cookies')
   setCookies = (text: string) => this.call<{ rows: number }>('PUT', '/cookies', text, 'text/plain')

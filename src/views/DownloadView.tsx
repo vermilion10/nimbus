@@ -7,6 +7,7 @@ import {
   Download,
   FolderOpen,
   Loader2,
+  RefreshCw,
   RotateCcw,
   Trash2,
   X,
@@ -219,6 +220,26 @@ function JobRow({ job: j, dl, onChange }: { job: DlJob; dl: Dl; onChange: () => 
         </span>
       </div>
       <div className="row-actions" onClick={(e) => e.stopPropagation()}>
+        {j.status === 'done' && (
+          <button
+            className="icon-btn state"
+            title="Check for new media"
+            aria-label="Check for new media"
+            onClick={() => dl.retry(j.id).then(onChange, ui.error)}
+          >
+            <RefreshCw />
+          </button>
+        )}
+        {j.status === 'done' && j.files.length === 0 && (
+          <button
+            className="icon-btn state"
+            title="Download everything again"
+            aria-label="Download everything again"
+            onClick={() => dl.retry(j.id, true).then(onChange, ui.error)}
+          >
+            <Download />
+          </button>
+        )}
         {j.status === 'done' && (
           <button className="icon-btn state" title="Show in folder" aria-label="Show in folder" onClick={() => go(filesHref(j.folder))}>
             <FolderOpen />
